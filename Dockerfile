@@ -1,23 +1,31 @@
-FROM        centos:centos7
+# Run ZNC in a container
+# docker run -d -p 127.0.0.1:6697:6697 --name znc craighurley/docker-znc
+
+FROM        alpine:latest
 MAINTAINER  Craig Hurley
 
-# Install ZNC
-RUN         yum install epel-release -y && \
-            yum install znc -y && \
-            yum clean all
+ENV         LANG C.UTF-8
+ENV         HOME /home/user
 
-# Make required directories and generate a unique SSL key.
-RUN         mkdir -p /var/lib/znc/.znc/configs && \
-            znc --makepem --datadir /var/lib/znc/.znc && \
-            chown -R znc:znc /var/lib/znc
+RUN         apk update \
+            && apk add znc \
+            && rm -rf /var/cache/apk/*
+
+RUN         adduser -D -h $HOME user \
+            && mkdir -p $HOME/.znc/configs
+
+COPY        ./znc.conf $HOME/.znc/configs/
+
+RUN         znc --makepem --datadir $HOME/.znc \
+            && chown -R user:user $HOME
 
 EXPOSE      6697
 
-# Make the ZNC application folder a mounted volume to persist data.
-VOLUME      ["/var/lib/znc/.znc"]
+WORKDIR     $HOME
 
-# Make ZNC run as the restrictd user znc.
-USER        znc
+VOLUME      [ "$HOME/.znc" ]
+
+USER        user
 
 # Start the ZNC process and leave it running in the foreground.
-CMD         ["znc", "--foreground", "--datadir", "/var/lib/znc/.znc"]
+CMD         [ "znc", "--foreground", "--datadir", "/home/user/.znc" ]
